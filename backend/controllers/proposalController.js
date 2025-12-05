@@ -96,7 +96,18 @@ async function processVendorResponse(req, res) {
       [fromEmail]
     );
 
-    return res.json(success({ proposal: proposalResult.rows[0] }));
+    // Parse JSON fields for SQLite compatibility
+    const proposal = proposalResult.rows[0];
+    if (proposal) {
+      proposal.line_items = typeof proposal.line_items === 'string' 
+        ? JSON.parse(proposal.line_items) 
+        : proposal.line_items;
+      proposal.extracted_data = typeof proposal.extracted_data === 'string' 
+        ? JSON.parse(proposal.extracted_data) 
+        : proposal.extracted_data;
+    }
+
+    return res.json(success({ proposal }));
   } catch (err) {
     console.error('Error processing vendor response:', err);
     return res.status(500).json(errorResponse(err.message || 'Failed to process vendor response', null, 500));
@@ -172,9 +183,16 @@ async function compareProposals(req, res) {
       );
     }
 
+    // Parse JSON fields for proposals
+    const parsedProposals = proposalsResult.rows.map(p => ({
+      ...p,
+      line_items: typeof p.line_items === 'string' ? JSON.parse(p.line_items) : p.line_items,
+      extracted_data: typeof p.extracted_data === 'string' ? JSON.parse(p.extracted_data) : p.extracted_data,
+    }));
+
     return res.json(success({
       comparison,
-      proposals: proposalsResult.rows,
+      proposals: parsedProposals,
     }));
   } catch (err) {
     console.error('Error comparing proposals:', err);
@@ -290,8 +308,19 @@ async function mockInboundEmail(req, res) {
       [rfpId, vendor.id]
     );
 
+    // Parse JSON fields for SQLite compatibility
+    const proposal = proposalResult.rows[0];
+    if (proposal) {
+      proposal.line_items = typeof proposal.line_items === 'string' 
+        ? JSON.parse(proposal.line_items) 
+        : proposal.line_items;
+      proposal.extracted_data = typeof proposal.extracted_data === 'string' 
+        ? JSON.parse(proposal.extracted_data) 
+        : proposal.extracted_data;
+    }
+
     return res.json(success({
-      proposal: proposalResult.rows[0],
+      proposal,
       message: 'Vendor response processed and saved successfully'
     }));
   } catch (err) {

@@ -7,6 +7,10 @@ require('dotenv').config();
 let transporter = null;
 
 function getTransporter() {
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+    throw new Error('Email configuration incomplete. Please set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD in .env file');
+  }
+  
   if (!transporter) {
     transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -91,6 +95,10 @@ Procurement Team
  * Check for new emails and parse vendor responses
  */
 async function checkForNewEmails(callback) {
+  if (!process.env.IMAP_HOST || !process.env.IMAP_USER || !process.env.IMAP_PASSWORD) {
+    throw new Error('IMAP configuration incomplete. Please set IMAP_HOST, IMAP_USER, and IMAP_PASSWORD in .env file');
+  }
+  
   const imap = new Imap({
     user: process.env.IMAP_USER,
     password: process.env.IMAP_PASSWORD,

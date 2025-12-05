@@ -104,7 +104,14 @@ async function getAllRFPs(req, res) {
     const result = await pool.query(
       'SELECT * FROM rfps ORDER BY created_at DESC'
     );
-    return res.json(success({ rfps: result.rows }));
+    // Parse JSON fields for SQLite compatibility
+    const rfps = result.rows.map(rfp => ({
+      ...rfp,
+      requirements: typeof rfp.requirements === 'string' 
+        ? JSON.parse(rfp.requirements) 
+        : rfp.requirements
+    }));
+    return res.json(success({ rfps }));
   } catch (err) {
     console.error('Error fetching RFPs:', err);
     return res.status(500).json(errorResponse('Failed to fetch RFPs', null, 500));
@@ -125,6 +132,10 @@ async function getRFP(req, res) {
     }
 
     const rfp = rfpResult.rows[0];
+    // Parse JSON fields for SQLite compatibility
+    rfp.requirements = typeof rfp.requirements === 'string' 
+      ? JSON.parse(rfp.requirements) 
+      : rfp.requirements;
 
     // Get proposals
     const proposalsResult = await pool.query(
@@ -135,6 +146,13 @@ async function getRFP(req, res) {
        ORDER BY p.created_at DESC`,
       [id]
     );
+    
+    // Parse JSON fields for SQLite compatibility
+    const proposals = proposalsResult.rows.map(p => ({
+      ...p,
+      line_items: typeof p.line_items === 'string' ? JSON.parse(p.line_items) : p.line_items,
+      extracted_data: typeof p.extracted_data === 'string' ? JSON.parse(p.extracted_data) : p.extracted_data,
+    }));
 
     // Get scores
     const scoresResult = await pool.query(
@@ -147,7 +165,7 @@ async function getRFP(req, res) {
 
     return res.json(success({
       rfp,
-      proposals: proposalsResult.rows,
+      proposals,
       scores: scoresResult.rows,
     }));
   } catch (err) {
@@ -174,6 +192,7 @@ async function sendRFPToVendors(req, res) {
     }
 
     const rfp = rfpResult.rows[0];
+    // Parse JSON fields for SQLite compatibility
     rfp.requirements = typeof rfp.requirements === 'string' 
       ? JSON.parse(rfp.requirements) 
       : rfp.requirements;

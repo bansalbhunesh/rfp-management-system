@@ -96,35 +96,85 @@ if (process.env.DB_NAME && process.env.DB_USER) {
     console.error('⚠️  Schema initialization warning:', err.message);
   }
 
+  // Convert PostgreSQL placeholders ($1, $2, etc.) to SQLite placeholders (?)
+  function convertPostgresToSQLite(sql, params) {
+    // Replace PostgreSQL functions with SQLite equivalents
+    let sqliteSql = sql
+      .replace(/\bNOW()\b/gi, "datetime('now')")
+      .replace(/\bCURRENT_TIMESTAMP\b/gi, "datetime('now')");
+    
+    // Replace $1, $2, etc. with ?
+    sqliteSql = sqliteSql.replace(/\$\d+/g, '?');
+    
+    // Handle RETURNING clause (SQLite doesn't support it in all contexts)
+    const returningMatch = sql.match(/INSERT\s+INTO\s+(\w+).*?RETURNING\s+\*/i);
+    let hasReturning = false;
+    let tableName = null;
+    
+    if (returningMatch) {
+      hasReturning = true;
+      tableName = returningMatch[1];
+      sqliteSql = sqliteSql.replace(/\s+RETURNING\s+\*/i, '');
+    }
+    
+    return { sql: sqliteSql, hasReturning, tableName, params };
+  }
+
   db = {
     query: (sql, params = []) => {
       return new Promise((resolve, reject) => {
         try {
-          // Handle INSERT ... RETURNING * for SQLite
-          const returningMatch = sql.match(/INSERT\s+INTO\s+(\w+).*?RETURNING\s+\*/i);
-          if (returningMatch) {
-            const tableName = returningMatch[1];
-            // Execute INSERT
-            const stmt = sqliteDb.prepare(sql.replace(/\s+RETURNING\s+\*/i, ''));
-            const info = stmt.run(params);
+          const { sql: sqliteSql, hasReturning, tableName, params: convertedParams } = convertPostgresToSQLite(sql, params);
+          
+          if (hasReturning) {
+            // Execute INSERT and get the inserted row
+            const stmt = sqliteDb.prepare(sqliteSql);
+            const info = stmt.run(convertedParams);
             
             // Get the inserted row
-            const idColumn = tableName === 'rfps' || tableName === 'vendors' || 
-                           tableName === 'proposals' || tableName === 'proposal_scores' ||
-                           tableName === 'rfp_vendors' ? 'id' : 'id';
-            const insertedRow = sqliteDb.prepare(`SELECT * FROM ${tableName} WHERE ${idColumn} = ?`).get(info.lastInsertRowid);
+            const insertedRow = sqliteDb.prepare(`SELECT * FROM ${tableName} WHERE id = ?`).get(info.lastInsertRowid);
             
             resolve({ rows: insertedRow ? [insertedRow] : [] });
-          } else if (sql.trim().toUpperCase().startsWith('SELECT')) {
+          } else if (sqliteSql.trim().toUpperCase().startsWith('SELECT')) {
             // SELECT queries
-            const stmt = sqliteDb.prepare(sql);
-            const rows = stmt.all(params);
+            const stmt = sqliteDb.prepare(sqliteSql);
+            const rows = stmt.all(convertedParams);
             resolve({ rows });
           } else {
             // Other queries (UPDATE, DELETE, etc.)
-            const stmt = sqliteDb.prepare(sql);
-            const info = stmt.run(params);
-            resolve({ rows: [{ changes: info.changes, lastInsertRowid: info.lastInsertRowid }] });
+            const returningMatch = sql.match(/UPDATE\s+\w+.*?RETURNING\s+\*/i);
+            if (returningMatch) {
+              // Handle UPDATE ... RETURNING *
+              // Extract table name and WHERE clause
+              const updateMatch = sql.match(/UPDATE\s+(\w+)/i);
+              const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+RETURNING|$)/i);
+              
+              if (updateMatch && whereMatch) {
+                const tableName = updateMatch[1];
+                // Remove RETURNING clause
+                const updateSql = sqliteSql.replace(/\s+RETURNING\s+\*/i, '');
+                const stmt = sqliteDb.prepare(updateSql);
+                const info = stmt.run(convertedParams);
+                
+                if (info.changes > 0) {
+                  // Get the updated row - we need the WHERE clause value (usually the last param)
+                  // This is a simplified approach - assumes WHERE id = ?
+                  const selectStmt = sqliteDb.prepare(`SELECT * FROM ${tableName} WHERE id = ?`);
+                  const updatedRow = selectStmt.get(convertedParams[convertedParams.length - 1]);
+                  resolve({ rows: updatedRow ? [updatedRow] : [] });
+                } else {
+                  resolve({ rows: [] });
+                }
+              } else {
+                const stmt = sqliteDb.prepare(sqliteSql);
+                const info = stmt.run(convertedParams);
+                resolve({ rows: [{ changes: info.changes, lastInsertRowid: info.lastInsertRowid }] });
+              }
+            } else {
+              const stmt = sqliteDb.prepare(sqliteSql);
+              const info = stmt.run(convertedParams);
+              resolve({ rows: [{ changes: info.changes, lastInsertRowid: info.lastInsertRowid }] });
+            }
           }
         } catch (err) {
           reject(err);

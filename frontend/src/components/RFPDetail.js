@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getRFP, getAllVendors, sendRFPToVendors, compareProposals, checkEmails } from '../api/api';
-import { showSuccess, showError } from '../utils/toast';
+import { showSuccess, showError, showInfo } from '../utils/toast';
 import './RFPDetail.css';
 
 function RFPDetail() {
@@ -282,8 +282,21 @@ function RFPDetail() {
             <p><strong>Summary:</strong> {comparison.summary}</p>
             {comparison.best_proposal_id && (
               <p className="mt-1">
-                <strong>Recommended Vendor:</strong> Proposal #{comparison.best_proposal_id}
+                <strong>Recommended Vendor:</strong> {
+                  proposals.find(p => p.id === comparison.best_proposal_id)?.vendor_name || 
+                  `Proposal #${comparison.best_proposal_id}`
+                }
               </p>
+            )}
+            {comparison.key_differences && comparison.key_differences.length > 0 && (
+              <div className="mt-1">
+                <strong>Key Differences:</strong>
+                <ul style={{ marginTop: '0.5rem', marginLeft: '1.5rem' }}>
+                  {comparison.key_differences.map((diff, idx) => (
+                    <li key={idx}>{diff}</li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         </div>
