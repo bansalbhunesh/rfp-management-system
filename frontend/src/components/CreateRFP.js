@@ -24,16 +24,22 @@ function CreateRFP() {
 
     try {
       const response = await createRFPFromNaturalLanguage(naturalLanguage);
-      setCreatedRFP(response.data.rfp);
+      // Handle new API response format { success, data } or old format
+      const data = response.data.success ? response.data.data : response.data;
+      const rfp = data.rfp || data;
+      setCreatedRFP(rfp);
       setSuccess(true);
       setNaturalLanguage('');
       
       // Redirect to RFP detail after 2 seconds
-      setTimeout(() => {
-        navigate(`/rfp/${response.data.rfp.id}`);
-      }, 2000);
+      if (rfp && rfp.id) {
+        setTimeout(() => {
+          navigate(`/rfp/${rfp.id}`);
+        }, 2000);
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create RFP');
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to create RFP';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }

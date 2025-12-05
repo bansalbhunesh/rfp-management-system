@@ -25,11 +25,14 @@ function VendorManagement() {
     try {
       setLoading(true);
       const response = await getAllVendors();
-      setVendors(response.data.vendors);
+      // Handle new API response format { success, data } or old format
+      const data = response.data.success ? response.data.data : response.data;
+      setVendors(data.vendors || []);
       setError(null);
     } catch (err) {
       setError('Failed to load vendors');
       console.error(err);
+      setVendors([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -42,11 +45,17 @@ function VendorManagement() {
 
     try {
       if (editingVendor) {
-        await updateVendor(editingVendor.id, formData);
-        setSuccess('Vendor updated successfully');
+        const response = await updateVendor(editingVendor.id, formData);
+        const message = response.data.success 
+          ? (response.data.message || 'Vendor updated successfully')
+          : 'Vendor updated successfully';
+        setSuccess(message);
       } else {
-        await createVendor(formData);
-        setSuccess('Vendor created successfully');
+        const response = await createVendor(formData);
+        const message = response.data.success 
+          ? (response.data.message || 'Vendor created successfully')
+          : 'Vendor created successfully';
+        setSuccess(message);
       }
       
       setShowForm(false);

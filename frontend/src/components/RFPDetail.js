@@ -47,9 +47,12 @@ function RFPDetail() {
   const loadAllVendors = async () => {
     try {
       const response = await getAllVendors();
-      setAllVendors(response.data.vendors);
+      // Handle new API response format { success, data } or old format
+      const data = response.data.success ? response.data.data : response.data;
+      setAllVendors(data.vendors || []);
     } catch (err) {
       console.error('Failed to load vendors:', err);
+      setAllVendors([]);
     }
   };
 

@@ -17,11 +17,14 @@ function Dashboard() {
     try {
       setLoading(true);
       const response = await getAllRFPs();
-      setRfps(response.data.rfps);
+      // Handle new API response format { success, data } or old format
+      const data = response.data.success ? response.data.data : response.data;
+      setRfps(data.rfps || []);
       setError(null);
     } catch (err) {
       setError('Failed to load RFPs');
       console.error(err);
+      setRfps([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
