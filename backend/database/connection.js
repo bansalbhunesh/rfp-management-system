@@ -5,7 +5,7 @@ let dbType = null;
 
 // Determine which database to use
 if (process.env.DB_NAME && process.env.DB_USER) {
-  // Use PostgreSQL
+  // Use PostgreSQL - only require when needed
   const { Pool } = require('pg');
   dbType = 'postgres';
   
@@ -48,9 +48,16 @@ if (process.env.DB_NAME && process.env.DB_USER) {
     }
   };
 } else {
-  // Use SQLite fallback
+  // Use SQLite fallback - only require when needed
   dbType = 'sqlite';
-  const Database = require('better-sqlite3');
+  let Database;
+  try {
+    Database = require('better-sqlite3');
+  } catch (err) {
+    console.error('❌ better-sqlite3 not installed. Run: npm install better-sqlite3');
+    throw err;
+  }
+  
   const path = require('path');
   const fs = require('fs');
 
@@ -61,17 +68,32 @@ if (process.env.DB_NAME && process.env.DB_USER) {
   }
 
   const dbPath = path.join(dbDir, 'local.sqlite');
-  const sqliteDb = new Database(dbPath);
+  let sqliteDb;
+  
+  try {
+    sqliteDb = new Database(dbPath);
+    console.log('📦 Using SQLite database (local demo mode)');
+    console.log(`   Database file: ${dbPath}`);
+  } catch (err) {
+    console.error('❌ Failed to open SQLite database:', err.message);
+    throw err;
+  }
 
-  console.log('📦 Using SQLite database (local demo mode)');
-  console.log(`   Database file: ${dbPath}`);
-
-  // Initialize schema if needed
-  const schemaPath = path.join(__dirname, 'schema.sqlite.sql');
-  if (fs.existsSync(schemaPath)) {
-    const schema = fs.readFileSync(schemaPath, 'utf8');
-    sqliteDb.exec(schema);
-    console.log('✅ SQLite schema initialized');
+  // Initialize schema if needed (only if tables don't exist)
+  try {
+    const tableCheck = sqliteDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='vendors'").get();
+    if (!tableCheck) {
+      const schemaPath = path.join(__dirname, 'schema.sqlite.sql');
+      if (fs.existsSync(schemaPath)) {
+        const schema = fs.readFileSync(schemaPath, 'utf8');
+        sqliteDb.exec(schema);
+        console.log('✅ SQLite schema initialized');
+      }
+    } else {
+      console.log('✅ SQLite database ready');
+    }
+  } catch (err) {
+    console.error('⚠️  Schema initialization warning:', err.message);
   }
 
   db = {
