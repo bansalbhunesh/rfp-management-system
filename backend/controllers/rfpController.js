@@ -1,6 +1,47 @@
 const pool = require('../database/connection');
 const aiService = require('../services/aiService');
 const emailService = require('../services/emailService');
+const { success, error: errorResponse } = require('../utils/responseHelper');
+
+/**
+ * Parse natural language to preview RFP structure (without saving)
+ */
+async function parseNaturalLanguage(req, res) {
+  try {
+    const { naturalLanguage } = req.body;
+
+    if (!naturalLanguage) {
+      return res.status(400).json(errorResponse('Natural language input is required'));
+    }
+
+    // Use AI to convert natural language to structured RFP
+    const rfpData = await aiService.createRFPFromNaturalLanguage(naturalLanguage);
+
+    // Calculate delivery_date from delivery_days if provided
+    let delivery_date = rfpData.delivery_date;
+    if (!delivery_date && rfpData.delivery_days) {
+      const deliveryDate = new Date();
+      deliveryDate.setDate(deliveryDate.getDate() + parseInt(rfpData.delivery_days));
+      delivery_date = deliveryDate.toISOString().split('T')[0];
+    }
+
+    // Convert requirements format if needed
+    const requirements = (rfpData.requirements || []).map(req => ({
+      item: req.item || req.name || 'Item',
+      quantity: req.quantity || null,
+      specifications: req.specifications || req.spec || null
+    }));
+
+    return res.json(success({
+      ...rfpData,
+      delivery_date,
+      requirements
+    }));
+  } catch (err) {
+    console.error('Error parsing natural language:', err);
+    return res.status(500).json(errorResponse(err.message || 'Failed to parse natural language', null, 500));
+  }
+}
 
 /**
  * Create RFP from natural language
@@ -10,11 +51,26 @@ async function createRFPFromNaturalLanguage(req, res) {
     const { naturalLanguage } = req.body;
 
     if (!naturalLanguage) {
-      return res.status(400).json({ error: 'Natural language input is required' });
+      return res.status(400).json(errorResponse('Natural language input is required'));
     }
 
     // Use AI to convert natural language to structured RFP
     const rfpData = await aiService.createRFPFromNaturalLanguage(naturalLanguage);
+
+    // Calculate delivery_date from delivery_days if provided
+    let delivery_date = rfpData.delivery_date;
+    if (!delivery_date && rfpData.delivery_days) {
+      const deliveryDate = new Date();
+      deliveryDate.setDate(deliveryDate.getDate() + parseInt(rfpData.delivery_days));
+      delivery_date = deliveryDate.toISOString().split('T')[0];
+    }
+
+    // Convert requirements format if needed (name -> item)
+    const requirements = (rfpData.requirements || []).map(req => ({
+      item: req.item || req.name || 'Item',
+      quantity: req.quantity || null,
+      specifications: req.specifications || req.spec || null
+    }));
 
     // Save to database
     const result = await pool.query(
@@ -26,17 +82,17 @@ async function createRFPFromNaturalLanguage(req, res) {
         rfpData.description,
         rfpData.budget,
         rfpData.deadline,
-        rfpData.delivery_date,
+        delivery_date,
         rfpData.payment_terms,
         rfpData.warranty_period,
-        JSON.stringify(rfpData.requirements || []),
+        JSON.stringify(requirements),
       ]
     );
 
-    res.json({ rfp: result.rows[0] });
-  } catch (error) {
-    console.error('Error creating RFP:', error);
-    res.status(500).json({ error: error.message || 'Failed to create RFP' });
+    return res.json(success({ rfp: result.rows[0] }, 'RFP created successfully'));
+  } catch (err) {
+    console.error('Error creating RFP:', err);
+    return res.status(500).json(errorResponse(err.message || 'Failed to create RFP', null, 500));
   }
 }
 
@@ -48,10 +104,10 @@ async function getAllRFPs(req, res) {
     const result = await pool.query(
       'SELECT * FROM rfps ORDER BY created_at DESC'
     );
-    res.json({ rfps: result.rows });
-  } catch (error) {
-    console.error('Error fetching RFPs:', error);
-    res.status(500).json({ error: 'Failed to fetch RFPs' });
+    return res.json(success({ rfps: result.rows }));
+  } catch (err) {
+    console.error('Error fetching RFPs:', err);
+    return res.status(500).json(errorResponse('Failed to fetch RFPs', null, 500));
   }
 }
 
@@ -89,14 +145,14 @@ async function getRFP(req, res) {
       [id]
     );
 
-    res.json({
+    return res.json(success({
       rfp,
       proposals: proposalsResult.rows,
       scores: scoresResult.rows,
-    });
-  } catch (error) {
-    console.error('Error fetching RFP:', error);
-    res.status(500).json({ error: 'Failed to fetch RFP' });
+    }));
+  } catch (err) {
+    console.error('Error fetching RFP:', err);
+    return res.status(500).json(errorResponse('Failed to fetch RFP', null, 500));
   }
 }
 
@@ -108,13 +164,13 @@ async function sendRFPToVendors(req, res) {
     const { rfpId, vendorIds } = req.body;
 
     if (!rfpId || !vendorIds || !Array.isArray(vendorIds)) {
-      return res.status(400).json({ error: 'RFP ID and vendor IDs are required' });
+      return res.status(400).json(errorResponse('RFP ID and vendor IDs are required'));
     }
 
     // Get RFP data
     const rfpResult = await pool.query('SELECT * FROM rfps WHERE id = $1', [rfpId]);
     if (rfpResult.rows.length === 0) {
-      return res.status(404).json({ error: 'RFP not found' });
+      return res.status(404).json(errorResponse('RFP not found', null, 404));
     }
 
     const rfp = rfpResult.rows[0];
@@ -158,14 +214,15 @@ async function sendRFPToVendors(req, res) {
     // Update RFP status
     await pool.query('UPDATE rfps SET status = $1 WHERE id = $2', ['sent', rfpId]);
 
-    res.json({ results });
-  } catch (error) {
-    console.error('Error sending RFP:', error);
-    res.status(500).json({ error: error.message || 'Failed to send RFP' });
+    return res.json(success({ results }, 'RFP sent successfully'));
+  } catch (err) {
+    console.error('Error sending RFP:', err);
+    return res.status(500).json(errorResponse(err.message || 'Failed to send RFP', null, 500));
   }
 }
 
 module.exports = {
+  parseNaturalLanguage,
   createRFPFromNaturalLanguage,
   getAllRFPs,
   getRFP,

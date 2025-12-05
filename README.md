@@ -33,7 +33,7 @@ This system helps procurement managers:
 - ✅ AI-assisted proposal comparison and scoring
 - ✅ Modern, intuitive web interface
 
-## Tech Stack
+## 2. Tech Stack
 
 ### Frontend
 - **React 18** - UI framework
@@ -53,11 +53,11 @@ This system helps procurement managers:
 - **Nodemon** - Auto-restart for development
 - **Concurrently** - Run frontend and backend together
 
-## Project Setup
+## 1. Project Setup
 
 ### Prerequisites
 
-- **Node.js** v18 or higher
+- **Node.js** v18 or higher (`node --version` to check)
 - **PostgreSQL** v12 or higher
 - **OpenAI API Key** (from https://platform.openai.com/)
 - **Email Account** with SMTP/IMAP access (Gmail recommended)
@@ -95,13 +95,13 @@ This system helps procurement managers:
 
 4. **Configure environment variables**
 
-   Copy `backend/.env.example` to `backend/.env` and fill in your values:
+   Create `backend/.env` file with the following variables:
    ```bash
    cd backend
-   cp .env.example .env
+   # Create .env file (copy the template below)
    ```
 
-   Edit `backend/.env`:
+   Create `backend/.env` with these variables:
    ```env
    # Server
    PORT=3001
@@ -167,7 +167,7 @@ This system helps procurement managers:
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:3001
 
-## API Documentation
+## 3. API Documentation
 
 ### RFPs
 
@@ -326,7 +326,11 @@ Response:
 }
 ```
 
-## Architecture & Design Decisions
+## 4. Decisions & Assumptions
+
+### Key Design Decisions
+
+#### Database Schema
 
 ### Database Schema
 
@@ -361,12 +365,91 @@ Response:
 1. **Sending:** User selects vendors → System generates email from RFP → Sends via SMTP → Records in `rfp_vendors`
 2. **Receiving:** IMAP checks inbox → Parses email → Matches vendor by email → Finds associated RFP → AI extracts data → Saves to `proposals`
 
-**Assumptions:**
-- Vendor email addresses are unique identifiers
-- Responses come from the same email address as vendor record
-- Most recent RFP-vendor relationship is used for matching
+### Assumptions
 
-## AI Integration
+1. **Email Matching:** Vendor email addresses are unique identifiers. Responses must come from the same email address as the vendor record.
+2. **Single Active RFP:** Assumes one active RFP per vendor at a time. When processing responses, uses the most recent RFP-vendor relationship.
+3. **Email Format:** Vendor responses are expected in email body text. Attachments are not currently parsed.
+4. **Manual Email Check:** Email checking is manual (button-triggered) rather than automatic to avoid constant IMAP connections.
+5. **Single User:** System is designed for single-user use (no authentication required as per assignment requirements).
+6. **RFP Structure:** RFPs are created once and sent. No editing after sending (to maintain data integrity for comparisons).
+
+### API Design
+
+- RESTful endpoints with clear resource naming
+- Consistent error responses: `{ error: "message" }`
+- JSON request/response format
+- CORS enabled for frontend-backend communication
+
+### Frontend Architecture
+
+- Component-based React structure
+- Centralized API client (`src/api/api.js`)
+- Route-based navigation for different views
+- Minimal state management (local component state)
+
+### Email Processing Flow
+
+1. **Sending:** User selects vendors → System generates email from RFP → Sends via SMTP → Records in `rfp_vendors`
+2. **Receiving:** IMAP checks inbox → Parses email → Matches vendor by email → Finds associated RFP → AI extracts data → Saves to `proposals`
+
+## 5. AI Tools Usage
+
+### Tools Used
+- **Cursor AI** - Primary development assistant for code generation and debugging
+- **Claude (Anthropic)** - Code review and architecture decisions
+- **ChatGPT** - Prompt engineering and AI integration design
+
+### What AI Helped With
+
+1. **Boilerplate Generation:**
+   - React component structure and styling
+   - Express route and controller patterns
+   - Database schema design
+
+2. **AI Integration Design:**
+   - Prompt engineering for GPT-4 Turbo
+   - JSON response format design
+   - Error handling strategies for AI API calls
+
+3. **Architecture Decisions:**
+   - Database schema optimization (JSONB for flexible requirements)
+   - API endpoint design and RESTful patterns
+   - Email processing flow design
+
+4. **Code Quality:**
+   - Error handling patterns
+   - Async/await best practices
+   - Code organization and separation of concerns
+
+### Notable Prompts/Approaches
+
+1. **RFP Extraction Prompt:**
+   - Used example-based prompting with clear JSON schema
+   - Emphasized null handling for missing fields
+   - Included edge case handling instructions
+   - Temperature: 0.3 for consistency
+
+2. **Response Parsing Prompt:**
+   - Focused on robustness to handle various email formats (free-form text, tables)
+   - Explicitly requested null for missing data
+   - Structured output for easy database insertion
+   - Temperature: 0.2 for accuracy
+
+3. **Comparison Prompt:**
+   - Provided full context (RFP + all proposals)
+   - Requested multi-dimensional analysis (price, terms, completeness)
+   - Asked for both scores and explanations
+   - Temperature: 0.3 for balanced analysis
+
+### What Changed Because of AI Tools
+
+1. **Improved Error Handling:** AI suggested more comprehensive try-catch blocks and error messages
+2. **Better Prompt Design:** Iterative refinement based on AI feedback improved extraction accuracy
+3. **Code Organization:** AI helped identify separation of concerns (controllers, services, routes)
+4. **Database Design:** AI suggested JSONB for flexible requirements storage, avoiding rigid schemas
+
+## AI Integration Details
 
 ### 1. Natural Language to RFP Conversion
 
@@ -419,7 +502,7 @@ Response:
 - Completeness: How well proposal meets all requirements
 - Overall: Weighted combination
 
-## Email Configuration
+## Email Configuration (How to Configure Email Sending/Receiving)
 
 ### Gmail Setup (Recommended)
 
@@ -446,7 +529,7 @@ Response:
 - Uses most recent RFP-vendor relationship
 - Marks emails as read after processing
 
-## Known Limitations
+## Known Limitations & Future Work
 
 1. **Email Matching:** Requires exact email match between vendor record and sender
 2. **Single RFP per Vendor:** Assumes one active RFP per vendor (uses most recent)
@@ -455,7 +538,7 @@ Response:
 5. **No Authentication:** Single-user system (as per requirements)
 6. **IMAP Connection:** Requires persistent IMAP connection (not ideal for production)
 
-## Future Enhancements
+### Future Enhancements
 
 1. **Real-time Email Processing:**
    - Webhook integration (SendGrid, Mailgun)
@@ -485,59 +568,6 @@ Response:
    - Multi-tenant support
    - Audit logging
    - Rate limiting and API security
-
-## AI Tools Usage
-
-### Tools Used
-- **Cursor AI** - Primary development assistant
-- **Claude (Anthropic)** - Code review and architecture decisions
-- **ChatGPT** - Prompt engineering and AI integration design
-
-### What AI Helped With
-
-1. **Boilerplate Generation:**
-   - React component structure
-   - Express route and controller patterns
-   - Database schema design
-
-2. **AI Integration Design:**
-   - Prompt engineering for GPT-4
-   - JSON response format design
-   - Error handling strategies
-
-3. **Architecture Decisions:**
-   - Database schema optimization
-   - API endpoint design
-   - Email processing flow
-
-4. **Code Quality:**
-   - Error handling patterns
-   - Async/await best practices
-   - Code organization and structure
-
-### Notable Prompts/Approaches
-
-1. **RFP Extraction Prompt:**
-   - Used example-based prompting with clear JSON schema
-   - Emphasized null handling for missing fields
-   - Included edge case handling instructions
-
-2. **Response Parsing Prompt:**
-   - Focused on robustness to handle various email formats
-   - Explicitly requested null for missing data
-   - Structured output for easy database insertion
-
-3. **Comparison Prompt:**
-   - Provided full context (RFP + all proposals)
-   - Requested multi-dimensional analysis
-   - Asked for both scores and explanations
-
-### What Changed Because of AI Tools
-
-1. **Improved Error Handling:** AI suggested more comprehensive try-catch blocks
-2. **Better Prompt Design:** Iterative refinement based on AI feedback
-3. **Code Organization:** AI helped identify separation of concerns
-4. **Database Design:** AI suggested JSONB for flexible requirements storage
 
 ## License
 

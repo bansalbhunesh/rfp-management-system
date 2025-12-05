@@ -3,8 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
 import Dashboard from './components/Dashboard';
 import CreateRFP from './components/CreateRFP';
+import RFPCreate from './components/RFPCreate';
 import VendorManagement from './components/VendorManagement';
 import RFPDetail from './components/RFPDetail';
+import MockDemo from './components/MockDemo';
 
 function App() {
   return (
@@ -17,6 +19,7 @@ function App() {
               <Link to="/">Dashboard</Link>
               <Link to="/create-rfp">Create RFP</Link>
               <Link to="/vendors">Vendors</Link>
+              <Link to="/demo">Demo</Link>
             </div>
           </div>
         </nav>
@@ -24,9 +27,10 @@ function App() {
         <main className="main-content">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/create-rfp" element={<CreateRFP />} />
+            <Route path="/create-rfp" element={<RFPCreate />} />
             <Route path="/vendors" element={<VendorManagement />} />
             <Route path="/rfp/:id" element={<RFPDetail />} />
+            <Route path="/demo" element={<MockDemo />} />
           </Routes>
         </main>
       </div>

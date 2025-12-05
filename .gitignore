@@ -7,6 +7,10 @@ frontend/node_modules/
 .env
 backend/.env
 frontend/.env
+# But allow .env.example files
+!.env.example
+!backend/.env.example
+!frontend/.env.example
 
 # Build outputs
 frontend/build/

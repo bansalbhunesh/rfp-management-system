@@ -1,5 +1,6 @@
 const pool = require('../database/connection');
 const aiService = require('../services/aiService');
+const { success, error: errorResponse } = require('../utils/responseHelper');
 
 /**
  * Internal function to process vendor response (extracted for reuse)
@@ -69,7 +70,7 @@ async function processVendorResponse(req, res) {
     const { emailBody, emailSubject, fromEmail, messageId } = req.body;
 
     if (!emailBody || !fromEmail) {
-      return res.status(400).json({ error: 'Email body and sender email are required' });
+      return res.status(400).json(errorResponse('Email body and sender email are required'));
     }
 
     const result = await pool.query(
@@ -95,10 +96,10 @@ async function processVendorResponse(req, res) {
       [fromEmail]
     );
 
-    res.json({ proposal: proposalResult.rows[0] });
-  } catch (error) {
-    console.error('Error processing vendor response:', error);
-    res.status(500).json({ error: error.message || 'Failed to process vendor response' });
+    return res.json(success({ proposal: proposalResult.rows[0] }));
+  } catch (err) {
+    console.error('Error processing vendor response:', err);
+    return res.status(500).json(errorResponse(err.message || 'Failed to process vendor response', null, 500));
   }
 }
 
@@ -112,7 +113,7 @@ async function compareProposals(req, res) {
     // Get RFP
     const rfpResult = await pool.query('SELECT * FROM rfps WHERE id = $1', [rfpId]);
     if (rfpResult.rows.length === 0) {
-      return res.status(404).json({ error: 'RFP not found' });
+      return res.status(404).json(errorResponse('RFP not found', null, 404));
     }
 
     const rfp = rfpResult.rows[0];
@@ -127,7 +128,7 @@ async function compareProposals(req, res) {
     );
 
     if (proposalsResult.rows.length === 0) {
-      return res.status(400).json({ error: 'No proposals found for this RFP' });
+      return res.status(400).json(errorResponse('No proposals found for this RFP'));
     }
 
     // Prepare data for AI comparison
@@ -171,13 +172,13 @@ async function compareProposals(req, res) {
       );
     }
 
-    res.json({
+    return res.json(success({
       comparison,
       proposals: proposalsResult.rows,
-    });
-  } catch (error) {
-    console.error('Error comparing proposals:', error);
-    res.status(500).json({ error: error.message || 'Failed to compare proposals' });
+    }));
+  } catch (err) {
+    console.error('Error comparing proposals:', err);
+    return res.status(500).json(errorResponse(err.message || 'Failed to compare proposals', null, 500));
   }
 }
 
@@ -210,10 +211,92 @@ async function checkEmails(req, res) {
       }
     });
 
-    res.json({ processed: processedEmails.length, emails: processedEmails });
-  } catch (error) {
-    console.error('Error checking emails:', error);
-    res.status(500).json({ error: error.message || 'Failed to check emails' });
+    return res.json(success({
+      processed: processedEmails.length,
+      emails: processedEmails
+    }));
+  } catch (err) {
+    console.error('Error checking emails:', err);
+    return res.status(500).json(errorResponse(err.message || 'Failed to check emails', null, 500));
+  }
+}
+
+/**
+ * Mock inbound email handler for local demos
+ * Simulates receiving an email from a vendor
+ */
+async function mockInboundEmail(req, res) {
+  try {
+    const { fromEmail, subject, body, messageId } = req.body;
+
+    if (!fromEmail || !body) {
+      return res.status(400).json(errorResponse('fromEmail and body are required'));
+    }
+
+    // Try to find or create vendor
+    let vendorResult = await pool.query('SELECT * FROM vendors WHERE email = $1', [fromEmail]);
+    let vendor;
+
+    if (vendorResult.rows.length === 0) {
+      // Auto-create vendor if not found
+      const createResult = await pool.query(
+        `INSERT INTO vendors (name, email, contact_person)
+         VALUES ($1, $2, $3)
+         RETURNING *`,
+        [fromEmail.split('@')[0], fromEmail, null]
+      );
+      vendor = createResult.rows[0];
+    } else {
+      vendor = vendorResult.rows[0];
+    }
+
+    // Find most recent RFP for this vendor
+    const rfpVendorResult = await pool.query(
+      `SELECT rfp_id FROM rfp_vendors
+       WHERE vendor_id = $1
+       ORDER BY sent_at DESC
+       LIMIT 1`,
+      [vendor.id]
+    );
+
+    if (rfpVendorResult.rows.length === 0) {
+      // Parse without saving if no RFP found
+      const parsedData = await aiService.parseVendorResponse(body, subject || '');
+      return res.json(success({
+        parsed: parsedData,
+        message: 'Email parsed successfully, but no RFP found for this vendor. Add vendor to an RFP first.',
+        vendor: vendor
+      }));
+    }
+
+    const rfpId = rfpVendorResult.rows[0].rfp_id;
+
+    // Process the vendor response
+    await processVendorResponseInternal({
+      emailBody: body,
+      emailSubject: subject || '',
+      fromEmail,
+      messageId: messageId || `mock-${Date.now()}`
+    });
+
+    // Get the saved proposal
+    const proposalResult = await pool.query(
+      `SELECT p.*, v.name as vendor_name, v.email as vendor_email
+       FROM proposals p
+       JOIN vendors v ON p.vendor_id = v.id
+       WHERE p.rfp_id = $1 AND p.vendor_id = $2
+       ORDER BY p.created_at DESC
+       LIMIT 1`,
+      [rfpId, vendor.id]
+    );
+
+    return res.json(success({
+      proposal: proposalResult.rows[0],
+      message: 'Vendor response processed and saved successfully'
+    }));
+  } catch (err) {
+    console.error('Error in mock inbound email:', err);
+    return res.status(500).json(errorResponse(err.message || 'Failed to process mock email', null, 500));
   }
 }
 
@@ -221,5 +304,7 @@ module.exports = {
   processVendorResponse,
   compareProposals,
   checkEmails,
+  mockInboundEmail,
+  processVendorResponseInternal, // Export for reuse
 };
 

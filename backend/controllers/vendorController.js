@@ -1,4 +1,5 @@
 const pool = require('../database/connection');
+const { success, error: errorResponse } = require('../utils/responseHelper');
 
 /**
  * Get all vendors
@@ -6,10 +7,10 @@ const pool = require('../database/connection');
 async function getAllVendors(req, res) {
   try {
     const result = await pool.query('SELECT * FROM vendors ORDER BY name');
-    res.json({ vendors: result.rows });
-  } catch (error) {
-    console.error('Error fetching vendors:', error);
-    res.status(500).json({ error: 'Failed to fetch vendors' });
+    return res.json(success({ vendors: result.rows }));
+  } catch (err) {
+    console.error('Error fetching vendors:', err);
+    return res.status(500).json(errorResponse('Failed to fetch vendors', null, 500));
   }
 }
 
@@ -21,7 +22,7 @@ async function createVendor(req, res) {
     const { name, email, contact_person, phone, address } = req.body;
 
     if (!name || !email) {
-      return res.status(400).json({ error: 'Name and email are required' });
+      return res.status(400).json(errorResponse('Name and email are required'));
     }
 
     const result = await pool.query(
@@ -31,13 +32,13 @@ async function createVendor(req, res) {
       [name, email, contact_person || null, phone || null, address || null]
     );
 
-    res.json({ vendor: result.rows[0] });
-  } catch (error) {
-    if (error.code === '23505') { // Unique violation
-      return res.status(400).json({ error: 'Vendor with this email already exists' });
+    return res.json(success({ vendor: result.rows[0] }, 'Vendor created successfully'));
+  } catch (err) {
+    if (err.code === '23505') { // Unique violation
+      return res.status(400).json(errorResponse('Vendor with this email already exists'));
     }
-    console.error('Error creating vendor:', error);
-    res.status(500).json({ error: 'Failed to create vendor' });
+    console.error('Error creating vendor:', err);
+    return res.status(500).json(errorResponse('Failed to create vendor', null, 500));
   }
 }
 
@@ -58,13 +59,13 @@ async function updateVendor(req, res) {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Vendor not found' });
+      return res.status(404).json(errorResponse('Vendor not found', null, 404));
     }
 
-    res.json({ vendor: result.rows[0] });
-  } catch (error) {
-    console.error('Error updating vendor:', error);
-    res.status(500).json({ error: 'Failed to update vendor' });
+    return res.json(success({ vendor: result.rows[0] }, 'Vendor updated successfully'));
+  } catch (err) {
+    console.error('Error updating vendor:', err);
+    return res.status(500).json(errorResponse('Failed to update vendor', null, 500));
   }
 }
 
@@ -78,13 +79,13 @@ async function deleteVendor(req, res) {
     const result = await pool.query('DELETE FROM vendors WHERE id = $1 RETURNING *', [id]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Vendor not found' });
+      return res.status(404).json(errorResponse('Vendor not found', null, 404));
     }
 
-    res.json({ message: 'Vendor deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting vendor:', error);
-    res.status(500).json({ error: 'Failed to delete vendor' });
+    return res.json(success(null, 'Vendor deleted successfully'));
+  } catch (err) {
+    console.error('Error deleting vendor:', err);
+    return res.status(500).json(errorResponse('Failed to delete vendor', null, 500));
   }
 }
 

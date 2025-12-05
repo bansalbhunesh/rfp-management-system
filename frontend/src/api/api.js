@@ -10,6 +10,10 @@ const api = axios.create({
 });
 
 // RFPs
+export const parseNaturalLanguage = (naturalLanguage) => {
+  return api.post('/rfps/parse', { naturalLanguage });
+};
+
 export const createRFPFromNaturalLanguage = (naturalLanguage) => {
   return api.post('/rfps/create-from-natural-language', { naturalLanguage });
 };
@@ -54,6 +58,11 @@ export const compareProposals = (rfpId) => {
 
 export const checkEmails = () => {
   return api.post('/proposals/check-emails');
+};
+
+// Mock endpoints
+export const mockInboundEmail = (emailData) => {
+  return api.post('/mock/inbound-email', emailData);
 };
 
 export default api;

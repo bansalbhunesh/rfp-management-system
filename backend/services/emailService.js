@@ -80,7 +80,10 @@ Procurement Team
     };
   } catch (error) {
     console.error('Error sending email:', error);
-    throw new Error('Failed to send email');
+    if (error.code === 'EAUTH') {
+      throw new Error('Email authentication failed. Please check your SMTP credentials in .env file.');
+    }
+    throw new Error(`Failed to send email: ${error.message}`);
   }
 }
 

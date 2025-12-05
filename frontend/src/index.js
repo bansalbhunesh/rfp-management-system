@@ -2,6 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { initToast } from './utils/toast';
+
+// Initialize toast system
+initToast();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getRFP, getAllVendors, sendRFPToVendors, compareProposals, checkEmails } from '../api/api';
+import { showSuccess, showError } from '../utils/toast';
 import './RFPDetail.css';
 
 function RFPDetail() {
@@ -9,7 +10,6 @@ function RFPDetail() {
   const [rfp, setRFP] = useState(null);
   const [proposals, setProposals] = useState([]);
   const [scores, setScores] = useState([]);
-  const [vendors, setVendors] = useState([]);
   const [allVendors, setAllVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,18 +22,22 @@ function RFPDetail() {
   useEffect(() => {
     loadRFP();
     loadAllVendors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadRFP = async () => {
     try {
       setLoading(true);
       const response = await getRFP(id);
-      setRFP(response.data.rfp);
-      setProposals(response.data.proposals || []);
-      setScores(response.data.scores || []);
+      const data = response.data.success ? response.data.data : response.data;
+      setRFP(data.rfp);
+      setProposals(data.proposals || []);
+      setScores(data.scores || []);
       setError(null);
     } catch (err) {
-      setError('Failed to load RFP');
+      const errorMsg = err.response?.data?.error || 'Failed to load RFP';
+      setError(errorMsg);
+      showError(errorMsg);
       console.error(err);
     } finally {
       setLoading(false);
@@ -51,7 +55,9 @@ function RFPDetail() {
 
   const handleSendRFP = async () => {
     if (selectedVendors.length === 0) {
-      setError('Please select at least one vendor');
+      const errorMsg = 'Please select at least one vendor';
+      setError(errorMsg);
+      showError(errorMsg);
       return;
     }
 
@@ -59,19 +65,26 @@ function RFPDetail() {
     setSuccess(null);
 
     try {
-      await sendRFPToVendors(id, selectedVendors);
-      setSuccess('RFP sent successfully to selected vendors');
+      const response = await sendRFPToVendors(id, selectedVendors);
+      const message = response.data.success 
+        ? (response.data.message || 'RFP sent successfully to selected vendors')
+        : 'RFP sent successfully to selected vendors';
+      showSuccess(message);
       setShowSendForm(false);
       setSelectedVendors([]);
       loadRFP();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to send RFP');
+      const errorMsg = err.response?.data?.error || 'Failed to send RFP';
+      setError(errorMsg);
+      showError(errorMsg);
     }
   };
 
   const handleCompare = async () => {
     if (proposals.length < 2) {
-      setError('Need at least 2 proposals to compare');
+      const errorMsg = 'Need at least 2 proposals to compare';
+      setError(errorMsg);
+      showError(errorMsg);
       return;
     }
 
@@ -80,11 +93,15 @@ function RFPDetail() {
 
     try {
       const response = await compareProposals(id);
-      setComparison(response.data.comparison);
-      setScores(response.data.scores || []);
+      const data = response.data.success ? response.data.data : response.data;
+      setComparison(data.comparison);
+      setScores(data.scores || []);
+      showSuccess('Proposals compared successfully');
       loadRFP();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to compare proposals');
+      const errorMsg = err.response?.data?.error || 'Failed to compare proposals';
+      setError(errorMsg);
+      showError(errorMsg);
     } finally {
       setComparing(false);
     }
@@ -96,14 +113,17 @@ function RFPDetail() {
 
     try {
       const response = await checkEmails();
-      if (response.data.processed > 0) {
-        setSuccess(`Processed ${response.data.processed} email(s)`);
+      const data = response.data.success ? response.data.data : response.data;
+      if (data.processed > 0) {
+        showSuccess(`Processed ${data.processed} email(s)`);
         loadRFP();
       } else {
-        setSuccess('No new emails found');
+        showInfo('No new emails found');
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to check emails');
+      const errorMsg = err.response?.data?.error || 'Failed to check emails';
+      setError(errorMsg);
+      showError(errorMsg);
     }
   };
 
