@@ -1,0 +1,141 @@
+.rfp-detail {
+  width: 100%;
+}
+
+.rfp-info {
+  padding: 1rem 0;
+}
+
+.info-row {
+  margin-bottom: 1rem;
+}
+
+.info-row p {
+  margin-top: 0.5rem;
+  color: #555;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.info-item {
+  padding: 0.5rem;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
+.requirements ul {
+  margin-top: 0.5rem;
+  margin-left: 1.5rem;
+}
+
+.requirements li {
+  margin-bottom: 0.5rem;
+}
+
+.send-form {
+  border-top: 1px solid #ddd;
+  padding-top: 1.5rem;
+}
+
+.vendor-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+  cursor: pointer;
+}
+
+.comparison-summary {
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
+.proposals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.proposal-card {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+}
+
+.proposal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.proposal-header h3 {
+  color: #2c3e50;
+}
+
+.scores {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.score-badge {
+  background-color: #3498db;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.proposal-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.detail-item {
+  padding: 0.5rem;
+  background-color: white;
+  border-radius: 4px;
+}
+
+.line-items {
+  margin-top: 1rem;
+}
+
+.notes,
+.recommendation {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: white;
+  border-radius: 4px;
+}
+
+.notes p,
+.recommendation p {
+  margin-top: 0.5rem;
+  color: #555;
+}
+

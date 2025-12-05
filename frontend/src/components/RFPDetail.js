@@ -1,0 +1,369 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { getRFP, getAllVendors, sendRFPToVendors, compareProposals, checkEmails } from '../api/api';
+import './RFPDetail.css';
+
+function RFPDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [rfp, setRFP] = useState(null);
+  const [proposals, setProposals] = useState([]);
+  const [scores, setScores] = useState([]);
+  const [vendors, setVendors] = useState([]);
+  const [allVendors, setAllVendors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [selectedVendors, setSelectedVendors] = useState([]);
+  const [showSendForm, setShowSendForm] = useState(false);
+  const [comparing, setComparing] = useState(false);
+  const [comparison, setComparison] = useState(null);
+
+  useEffect(() => {
+    loadRFP();
+    loadAllVendors();
+  }, [id]);
+
+  const loadRFP = async () => {
+    try {
+      setLoading(true);
+      const response = await getRFP(id);
+      setRFP(response.data.rfp);
+      setProposals(response.data.proposals || []);
+      setScores(response.data.scores || []);
+      setError(null);
+    } catch (err) {
+      setError('Failed to load RFP');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAllVendors = async () => {
+    try {
+      const response = await getAllVendors();
+      setAllVendors(response.data.vendors);
+    } catch (err) {
+      console.error('Failed to load vendors:', err);
+    }
+  };
+
+  const handleSendRFP = async () => {
+    if (selectedVendors.length === 0) {
+      setError('Please select at least one vendor');
+      return;
+    }
+
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await sendRFPToVendors(id, selectedVendors);
+      setSuccess('RFP sent successfully to selected vendors');
+      setShowSendForm(false);
+      setSelectedVendors([]);
+      loadRFP();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to send RFP');
+    }
+  };
+
+  const handleCompare = async () => {
+    if (proposals.length < 2) {
+      setError('Need at least 2 proposals to compare');
+      return;
+    }
+
+    setComparing(true);
+    setError(null);
+
+    try {
+      const response = await compareProposals(id);
+      setComparison(response.data.comparison);
+      setScores(response.data.scores || []);
+      loadRFP();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to compare proposals');
+    } finally {
+      setComparing(false);
+    }
+  };
+
+  const handleCheckEmails = async () => {
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await checkEmails();
+      if (response.data.processed > 0) {
+        setSuccess(`Processed ${response.data.processed} email(s)`);
+        loadRFP();
+      } else {
+        setSuccess('No new emails found');
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to check emails');
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const formatCurrency = (amount) => {
+    if (!amount) return 'N/A';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
+  const getScoreForProposal = (proposalId) => {
+    return scores.find(s => s.proposal_id === proposalId);
+  };
+
+  if (loading) {
+    return <div className="loading">Loading RFP...</div>;
+  }
+
+  if (!rfp) {
+    return <div className="error">RFP not found</div>;
+  }
+
+  const requirements = typeof rfp.requirements === 'string' 
+    ? JSON.parse(rfp.requirements) 
+    : rfp.requirements || [];
+
+  return (
+    <div className="rfp-detail">
+      <div className="card">
+        <div className="flex-between">
+          <h2>{rfp.title}</h2>
+          <button className="button button-secondary" onClick={() => navigate('/')}>
+            Back to Dashboard
+          </button>
+        </div>
+
+        {error && <div className="error">{error}</div>}
+        {success && <div className="success">{success}</div>}
+
+        <div className="rfp-info mt-2">
+          <div className="info-row">
+            <strong>Description:</strong>
+            <p>{rfp.description}</p>
+          </div>
+
+          <div className="info-grid">
+            <div className="info-item">
+              <strong>Budget:</strong> {formatCurrency(rfp.budget)}
+            </div>
+            <div className="info-item">
+              <strong>Deadline:</strong> {formatDate(rfp.deadline)}
+            </div>
+            <div className="info-item">
+              <strong>Delivery Date:</strong> {formatDate(rfp.delivery_date)}
+            </div>
+            <div className="info-item">
+              <strong>Payment Terms:</strong> {rfp.payment_terms || 'N/A'}
+            </div>
+            <div className="info-item">
+              <strong>Warranty Period:</strong> {rfp.warranty_period || 'N/A'}
+            </div>
+            <div className="info-item">
+              <strong>Status:</strong> <span className={`badge badge-${rfp.status}`}>{rfp.status}</span>
+            </div>
+          </div>
+
+          {requirements.length > 0 && (
+            <div className="requirements mt-2">
+              <strong>Requirements:</strong>
+              <ul>
+                {requirements.map((req, idx) => (
+                  <li key={idx}>
+                    {req.item}
+                    {req.quantity && ` (Quantity: ${req.quantity})`}
+                    {req.specifications && ` - ${req.specifications}`}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div className="actions mt-2">
+          <div className="button-group">
+            <button
+              className="button"
+              onClick={() => setShowSendForm(!showSendForm)}
+            >
+              {showSendForm ? 'Cancel' : 'Send RFP to Vendors'}
+            </button>
+            <button
+              className="button button-secondary"
+              onClick={handleCheckEmails}
+            >
+              Check for New Responses
+            </button>
+            {proposals.length >= 2 && (
+              <button
+                className="button button-success"
+                onClick={handleCompare}
+                disabled={comparing}
+              >
+                {comparing ? 'Comparing...' : 'Compare Proposals'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {showSendForm && (
+          <div className="send-form mt-2">
+            <h3>Select Vendors to Send RFP</h3>
+            {allVendors.length === 0 ? (
+              <p>No vendors available. Please add vendors first.</p>
+            ) : (
+              <>
+                <div className="vendor-checkboxes">
+                  {allVendors.map((vendor) => (
+                    <label key={vendor.id} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={selectedVendors.includes(vendor.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedVendors([...selectedVendors, vendor.id]);
+                          } else {
+                            setSelectedVendors(selectedVendors.filter(id => id !== vendor.id));
+                          }
+                        }}
+                      />
+                      {vendor.name} ({vendor.email})
+                    </label>
+                  ))}
+                </div>
+                <button className="button mt-2" onClick={handleSendRFP}>
+                  Send RFP
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {comparison && (
+        <div className="card mt-2">
+          <h2>AI Comparison Results</h2>
+          <div className="comparison-summary">
+            <p><strong>Summary:</strong> {comparison.summary}</p>
+            {comparison.best_proposal_id && (
+              <p className="mt-1">
+                <strong>Recommended Vendor:</strong> Proposal #{comparison.best_proposal_id}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="card mt-2">
+        <h2>Proposals ({proposals.length})</h2>
+
+        {proposals.length === 0 ? (
+          <p>No proposals received yet. Send the RFP to vendors to receive responses.</p>
+        ) : (
+          <div className="proposals-list">
+            {proposals.map((proposal) => {
+              const score = getScoreForProposal(proposal.id);
+              const lineItems = typeof proposal.line_items === 'string'
+                ? JSON.parse(proposal.line_items)
+                : proposal.line_items || [];
+
+              return (
+                <div key={proposal.id} className="proposal-card">
+                  <div className="proposal-header">
+                    <h3>{proposal.vendor_name}</h3>
+                    {score && (
+                      <div className="scores">
+                        <span className="score-badge">
+                          Overall: {score.overall_score?.toFixed(1)}/100
+                        </span>
+                        <span className="score-badge">
+                          Price: {score.price_score?.toFixed(1)}/100
+                        </span>
+                        <span className="score-badge">
+                          Terms: {score.terms_score?.toFixed(1)}/100
+                        </span>
+                        <span className="score-badge">
+                          Completeness: {score.completeness_score?.toFixed(1)}/100
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="proposal-details">
+                    <div className="detail-item">
+                      <strong>Total Price:</strong> {formatCurrency(proposal.total_price)}
+                    </div>
+                    <div className="detail-item">
+                      <strong>Payment Terms:</strong> {proposal.payment_terms || 'N/A'}
+                    </div>
+                    <div className="detail-item">
+                      <strong>Warranty:</strong> {proposal.warranty_period || 'N/A'}
+                    </div>
+                    <div className="detail-item">
+                      <strong>Delivery Date:</strong> {formatDate(proposal.delivery_date)}
+                    </div>
+                  </div>
+
+                  {lineItems.length > 0 && (
+                    <div className="line-items mt-1">
+                      <strong>Line Items:</strong>
+                      <table className="table mt-1">
+                        <thead>
+                          <tr>
+                            <th>Item</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lineItems.map((item, idx) => (
+                            <tr key={idx}>
+                              <td>{item.item}</td>
+                              <td>{item.quantity || 'N/A'}</td>
+                              <td>{formatCurrency(item.unit_price)}</td>
+                              <td>{formatCurrency(item.total_price)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {proposal.additional_notes && (
+                    <div className="notes mt-1">
+                      <strong>Additional Notes:</strong>
+                      <p>{proposal.additional_notes}</p>
+                    </div>
+                  )}
+
+                  {score?.recommendation_reason && (
+                    <div className="recommendation mt-1">
+                      <strong>AI Analysis:</strong>
+                      <p>{score.recommendation_reason}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default RFPDetail;
+
