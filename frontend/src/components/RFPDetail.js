@@ -251,9 +251,6 @@ function RFPDetail() {
               </button>
             )}
           </div>
-          <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#fff3cd', borderRadius: '4px', fontSize: '0.9rem', color: '#856404', border: '1px solid #ffc107' }}>
-            <strong>📧 Email Configuration:</strong> Email sending is not configured. RFPs are saved to the database. To send actual emails, configure SMTP settings in <code>backend/.env</code>. You can use the <strong>/demo</strong> page to test vendor responses.
-          </div>
         </div>
 
         {showSendForm && (

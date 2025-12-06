@@ -260,12 +260,13 @@ Procurement Team
       }
 
       // Record in database (even if email wasn't actually sent)
+      // Use separate params for UPDATE clause to avoid parameter duplication
       await pool.query(
         `INSERT INTO rfp_vendors (rfp_id, vendor_id, sent_at, email_subject, email_body)
          VALUES ($1, $2, NOW(), $3, $4)
          ON CONFLICT (rfp_id, vendor_id) DO UPDATE
-         SET sent_at = NOW(), email_subject = $3, email_body = $4`,
-        [rfpId, vendorId, emailResult.subject, emailResult.body]
+         SET sent_at = NOW(), email_subject = $5, email_body = $6`,
+        [rfpId, vendorId, emailResult.subject, emailResult.body, emailResult.subject, emailResult.body]
       );
 
       results.push({

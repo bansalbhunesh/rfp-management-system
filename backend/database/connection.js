@@ -98,14 +98,26 @@ if (process.env.DB_NAME && process.env.DB_USER) {
 
   // Convert PostgreSQL placeholders ($1, $2, etc.) to SQLite placeholders (?)
   function convertPostgresToSQLite(sql, params) {
+    // Count how many NOW() functions are in the SQL (they don't need parameters)
+    const nowMatches = sql.match(/NOW\(\)/gi);
+    const nowCount = nowMatches ? nowMatches.length : 0;
+    
     // Replace PostgreSQL functions with SQLite equivalents
-    // Note: NOW() needs to be replaced before placeholder conversion
     let sqliteSql = sql
       .replace(/NOW\(\)/gi, "datetime('now')")
       .replace(/\bCURRENT_TIMESTAMP\b/gi, "datetime('now')");
     
-    // Replace $1, $2, etc. with ?
-    sqliteSql = sqliteSql.replace(/\$\d+/g, '?');
+    // Replace $1, $2, etc. with ? in order
+    // We need to preserve the order and map correctly
+    const placeholderMatches = sql.match(/\$\d+/g) || [];
+    const maxPlaceholder = placeholderMatches.length > 0 
+      ? Math.max(...placeholderMatches.map(m => parseInt(m.substring(1))))
+      : 0;
+    
+    // Replace placeholders in reverse order to avoid conflicts
+    for (let i = maxPlaceholder; i >= 1; i--) {
+      sqliteSql = sqliteSql.replace(new RegExp(`\\$${i}`, 'g'), '?');
+    }
     
     // Handle RETURNING clause (SQLite doesn't support it in all contexts)
     const returningMatch = sql.match(/INSERT\s+INTO\s+(\w+).*?RETURNING\s+\*/i);

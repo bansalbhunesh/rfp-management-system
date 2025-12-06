@@ -38,20 +38,92 @@ function VendorManagement() {
     }
   };
 
+  // Validation functions
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone) => {
+    if (!phone) return true; // Phone is optional
+    // Remove all non-digit characters
+    const digitsOnly = phone.replace(/\D/g, '');
+    // Check if it's exactly 10 digits
+    return digitsOnly.length === 10;
+  };
+
+  const validateForm = () => {
+    // Name validation
+    if (!formData.name || formData.name.trim().length === 0) {
+      return 'Name is required';
+    }
+    if (formData.name.trim().length < 2) {
+      return 'Name must be at least 2 characters';
+    }
+    if (formData.name.length > 100) {
+      return 'Name must be less than 100 characters';
+    }
+
+    // Email validation
+    if (!formData.email || formData.email.trim().length === 0) {
+      return 'Email is required';
+    }
+    if (!validateEmail(formData.email)) {
+      return 'Please enter a valid email address';
+    }
+    if (formData.email.length > 255) {
+      return 'Email must be less than 255 characters';
+    }
+
+    // Contact person validation (optional)
+    if (formData.contact_person && formData.contact_person.length > 100) {
+      return 'Contact person name must be less than 100 characters';
+    }
+
+    // Phone validation
+    if (formData.phone && !validatePhone(formData.phone)) {
+      return 'Phone number must be exactly 10 digits';
+    }
+
+    // Address validation (optional)
+    if (formData.address && formData.address.length > 500) {
+      return 'Address must be less than 500 characters';
+    }
+
+    return null; // No errors
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
+    // Validate form
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    // Clean phone number (remove non-digits)
+    const cleanedFormData = {
+      ...formData,
+      phone: formData.phone ? formData.phone.replace(/\D/g, '') : '',
+      name: formData.name.trim(),
+      email: formData.email.trim().toLowerCase(),
+      contact_person: formData.contact_person ? formData.contact_person.trim() : '',
+      address: formData.address ? formData.address.trim() : '',
+    };
+
     try {
       if (editingVendor) {
-        const response = await updateVendor(editingVendor.id, formData);
+        const response = await updateVendor(editingVendor.id, cleanedFormData);
         const message = response.data.success 
           ? (response.data.message || 'Vendor updated successfully')
           : 'Vendor updated successfully';
         setSuccess(message);
       } else {
-        const response = await createVendor(formData);
+        const response = await createVendor(cleanedFormData);
         const message = response.data.success 
           ? (response.data.message || 'Vendor created successfully')
           : 'Vendor created successfully';
@@ -156,8 +228,14 @@ function VendorManagement() {
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="vendor@example.com"
                   required
                 />
+                {formData.email && !validateEmail(formData.email) && (
+                  <small style={{ color: '#e74c3c', marginTop: '0.25rem', display: 'block' }}>
+                    Please enter a valid email address
+                  </small>
+                )}
               </div>
 
               <div className="input-group">
@@ -171,13 +249,24 @@ function VendorManagement() {
               </div>
 
               <div className="input-group">
-                <label htmlFor="phone">Phone</label>
+                <label htmlFor="phone">Phone (10 digits)</label>
                 <input
                   id="phone"
-                  type="text"
+                  type="tel"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => {
+                    // Allow only digits, spaces, hyphens, and parentheses for formatting
+                    const value = e.target.value.replace(/[^\d\s\-\(\)]/g, '');
+                    setFormData({ ...formData, phone: value });
+                  }}
+                  placeholder="8360307465"
+                  maxLength={15}
                 />
+                {formData.phone && formData.phone.replace(/\D/g, '').length !== 10 && (
+                  <small style={{ color: '#e74c3c', marginTop: '0.25rem', display: 'block' }}>
+                    Phone must be exactly 10 digits (currently: {formData.phone.replace(/\D/g, '').length} digits)
+                  </small>
+                )}
               </div>
 
               <div className="input-group">

@@ -17,12 +17,60 @@ async function getAllVendors(req, res) {
 /**
  * Create vendor
  */
+// Validation helper functions
+function validateEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function validatePhone(phone) {
+  if (!phone) return true; // Phone is optional
+  const digitsOnly = phone.replace(/\D/g, '');
+  return digitsOnly.length === 10;
+}
+
 async function createVendor(req, res) {
   try {
-    const { name, email, contact_person, phone, address } = req.body;
+    let { name, email, contact_person, phone, address } = req.body;
 
-    if (!name || !email) {
-      return res.status(400).json(errorResponse('Name and email are required'));
+    // Trim and clean inputs
+    name = name ? name.trim() : '';
+    email = email ? email.trim().toLowerCase() : '';
+    contact_person = contact_person ? contact_person.trim() : '';
+    phone = phone ? phone.replace(/\D/g, '') : '';
+    address = address ? address.trim() : '';
+
+    // Validation
+    if (!name || name.length === 0) {
+      return res.status(400).json(errorResponse('Name is required'));
+    }
+    if (name.length < 2) {
+      return res.status(400).json(errorResponse('Name must be at least 2 characters'));
+    }
+    if (name.length > 100) {
+      return res.status(400).json(errorResponse('Name must be less than 100 characters'));
+    }
+
+    if (!email || email.length === 0) {
+      return res.status(400).json(errorResponse('Email is required'));
+    }
+    if (!validateEmail(email)) {
+      return res.status(400).json(errorResponse('Please enter a valid email address'));
+    }
+    if (email.length > 255) {
+      return res.status(400).json(errorResponse('Email must be less than 255 characters'));
+    }
+
+    if (contact_person && contact_person.length > 100) {
+      return res.status(400).json(errorResponse('Contact person name must be less than 100 characters'));
+    }
+
+    if (phone && !validatePhone(phone)) {
+      return res.status(400).json(errorResponse('Phone number must be exactly 10 digits'));
+    }
+
+    if (address && address.length > 500) {
+      return res.status(400).json(errorResponse('Address must be less than 500 characters'));
     }
 
     const result = await pool.query(
@@ -48,7 +96,47 @@ async function createVendor(req, res) {
 async function updateVendor(req, res) {
   try {
     const { id } = req.params;
-    const { name, email, contact_person, phone, address } = req.body;
+    let { name, email, contact_person, phone, address } = req.body;
+
+    // Trim and clean inputs
+    name = name ? name.trim() : '';
+    email = email ? email.trim().toLowerCase() : '';
+    contact_person = contact_person ? contact_person.trim() : '';
+    phone = phone ? phone.replace(/\D/g, '') : '';
+    address = address ? address.trim() : '';
+
+    // Validation (same as create)
+    if (!name || name.length === 0) {
+      return res.status(400).json(errorResponse('Name is required'));
+    }
+    if (name.length < 2) {
+      return res.status(400).json(errorResponse('Name must be at least 2 characters'));
+    }
+    if (name.length > 100) {
+      return res.status(400).json(errorResponse('Name must be less than 100 characters'));
+    }
+
+    if (!email || email.length === 0) {
+      return res.status(400).json(errorResponse('Email is required'));
+    }
+    if (!validateEmail(email)) {
+      return res.status(400).json(errorResponse('Please enter a valid email address'));
+    }
+    if (email.length > 255) {
+      return res.status(400).json(errorResponse('Email must be less than 255 characters'));
+    }
+
+    if (contact_person && contact_person.length > 100) {
+      return res.status(400).json(errorResponse('Contact person name must be less than 100 characters'));
+    }
+
+    if (phone && !validatePhone(phone)) {
+      return res.status(400).json(errorResponse('Phone number must be exactly 10 digits'));
+    }
+
+    if (address && address.length > 500) {
+      return res.status(400).json(errorResponse('Address must be less than 500 characters'));
+    }
 
     const result = await pool.query(
       `UPDATE vendors

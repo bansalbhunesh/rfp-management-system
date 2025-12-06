@@ -34,7 +34,7 @@ async function sendRFPEmail(vendorEmail, vendorName, rfpData) {
   const emailSubject = `RFP: ${rfpData.title}`;
   
   const emailBody = `
-Dear ${vendorName || 'Vendor'},
+Dear ${vendorName || vendorEmail || 'Vendor'},
 
 We are requesting a proposal for the following procurement:
 
@@ -68,9 +68,14 @@ Procurement Team
   `.trim();
 
   try {
+    // Format recipient with name and email for better display
+    const recipient = vendorName && vendorName !== vendorEmail
+      ? `${vendorName} <${vendorEmail}>`
+      : vendorEmail;
+
     const info = await transporter.sendMail({
       from: process.env.SMTP_FROM,
-      to: vendorEmail,
+      to: recipient,
       subject: emailSubject,
       text: emailBody,
       html: emailBody.replace(/\n/g, '<br>'),

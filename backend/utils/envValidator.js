@@ -18,7 +18,7 @@ function validateEnvironment() {
   }
 
   // Email configuration warnings
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
     warnings.push('Email configuration incomplete - email sending may not work');
   }
 
