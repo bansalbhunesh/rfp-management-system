@@ -69,10 +69,22 @@ function RFPDetail() {
 
     try {
       const response = await sendRFPToVendors(id, selectedVendors);
-      const message = response.data.success 
-        ? (response.data.message || 'RFP sent successfully to selected vendors')
-        : 'RFP sent successfully to selected vendors';
-      showSuccess(message);
+      const data = response.data.success ? response.data.data : response.data;
+      
+      // Check if any emails had warnings
+      const hasWarnings = data.results?.some(r => r.warning);
+      
+      if (hasWarnings) {
+        const warningMsg = data.results.find(r => r.warning)?.warning;
+        showError(warningMsg || 'RFP recorded but emails not sent. Configure email settings to send emails.');
+        setError(warningMsg || 'Email configuration incomplete');
+      } else {
+        const message = response.data.success 
+          ? (response.data.message || 'RFP sent successfully to selected vendors')
+          : 'RFP sent successfully to selected vendors';
+        showSuccess(message);
+      }
+      
       setShowSendForm(false);
       setSelectedVendors([]);
       loadRFP();
@@ -169,8 +181,8 @@ function RFPDetail() {
           </button>
         </div>
 
-        {error && <div className="error">{error}</div>}
-        {success && <div className="success">{success}</div>}
+        {error && <div className="alert alert-error">{error}</div>}
+        {success && <div className="alert alert-success">{success}</div>}
 
         <div className="rfp-info mt-2">
           <div className="info-row">
@@ -238,6 +250,9 @@ function RFPDetail() {
                 {comparing ? 'Comparing...' : 'Compare Proposals'}
               </button>
             )}
+          </div>
+          <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#fff3cd', borderRadius: '4px', fontSize: '0.9rem', color: '#856404', border: '1px solid #ffc107' }}>
+            <strong>📧 Email Configuration:</strong> Email sending is not configured. RFPs are saved to the database. To send actual emails, configure SMTP settings in <code>backend/.env</code>. You can use the <strong>/demo</strong> page to test vendor responses.
           </div>
         </div>
 

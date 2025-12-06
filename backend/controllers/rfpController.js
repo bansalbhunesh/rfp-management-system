@@ -206,14 +206,60 @@ async function sendRFPToVendors(req, res) {
 
       const vendor = vendorResult.rows[0];
 
-      // Send email
-      const emailResult = await emailService.sendRFPEmail(
-        vendor.email,
-        vendor.name,
-        rfp
-      );
+      // Generate email content
+      const emailSubject = `RFP: ${rfp.title}`;
+      const emailBody = `
+Dear ${vendor.name || 'Vendor'},
 
-      // Record in database
+We are requesting a proposal for the following procurement:
+
+${rfp.title}
+
+Description:
+${rfp.description}
+
+Requirements:
+${rfp.requirements?.map((req, idx) => 
+  `${idx + 1}. ${req.item}${req.quantity ? ` (Quantity: ${req.quantity})` : ''}${req.specifications ? ` - ${req.specifications}` : ''}`
+).join('\n') || 'See details in RFP'}
+
+Budget: ${rfp.budget ? `$${rfp.budget.toLocaleString()}` : 'Not specified'}
+Delivery Date Required: ${rfp.delivery_date || 'Not specified'}
+Payment Terms: ${rfp.payment_terms || 'Not specified'}
+Warranty Required: ${rfp.warranty_period || 'Not specified'}
+Deadline for Response: ${rfp.deadline || 'Not specified'}
+
+Please reply to this email with your proposal, including:
+- Detailed pricing for all items
+- Payment terms
+- Delivery timeline
+- Warranty information
+- Any additional terms or conditions
+
+Thank you for your interest.
+
+Best regards,
+Procurement Team
+      `.trim();
+
+      let emailResult = { subject: emailSubject, body: emailBody, messageId: null };
+      let emailSent = false;
+
+      // Try to send email, but don't fail if email is not configured
+      try {
+        emailResult = await emailService.sendRFPEmail(
+          vendor.email,
+          vendor.name,
+          rfp
+        );
+        emailSent = true;
+      } catch (emailError) {
+        // Email not configured - continue without sending email
+        console.warn(`Email not sent to ${vendor.email}: ${emailError.message}`);
+        emailResult.messageId = `local-${Date.now()}-${vendorId}`;
+      }
+
+      // Record in database (even if email wasn't actually sent)
       await pool.query(
         `INSERT INTO rfp_vendors (rfp_id, vendor_id, sent_at, email_subject, email_body)
          VALUES ($1, $2, NOW(), $3, $4)
@@ -227,13 +273,26 @@ async function sendRFPToVendors(req, res) {
         vendorName: vendor.name,
         success: true,
         messageId: emailResult.messageId,
+        emailSent,
+        warning: emailSent ? null : 'Email configuration not set - RFP saved but email not sent. Configure SMTP settings in .env to enable email sending.',
       });
     }
 
     // Update RFP status
     await pool.query('UPDATE rfps SET status = $1 WHERE id = $2', ['sent', rfpId]);
 
-    return res.json(success({ results }, 'RFP sent successfully'));
+    // Check if any emails were actually sent
+    const allEmailsSent = results.every(r => r.emailSent);
+    const someEmailsSent = results.some(r => r.emailSent);
+    
+    let message = 'RFP sent successfully';
+    if (!allEmailsSent && someEmailsSent) {
+      message = 'RFP sent to some vendors. Some emails failed - check configuration.';
+    } else if (!allEmailsSent) {
+      message = 'RFP saved successfully. Email sending is not configured - RFPs are recorded in the database. Configure SMTP settings to enable email sending.';
+    }
+
+    return res.json(success({ results }, message));
   } catch (err) {
     console.error('Error sending RFP:', err);
     return res.status(500).json(errorResponse(err.message || 'Failed to send RFP', null, 500));

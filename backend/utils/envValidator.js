@@ -7,9 +7,9 @@ function validateEnvironment() {
   const errors = [];
   const warnings = [];
 
-  // Database is optional - will use SQLite fallback if not configured
+  // Database is optional - will use SQLite if not configured
   if (!process.env.DB_NAME || !process.env.DB_USER) {
-    warnings.push('DB_NAME and DB_USER not set - will use SQLite fallback for local demo');
+    warnings.push('DB_NAME and DB_USER not set - using SQLite database');
   }
 
   // Optional but recommended

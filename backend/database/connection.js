@@ -72,7 +72,7 @@ if (process.env.DB_NAME && process.env.DB_USER) {
   
   try {
     sqliteDb = new Database(dbPath);
-    console.log('📦 Using SQLite database (local demo mode)');
+    console.log('📦 Using SQLite database');
     console.log(`   Database file: ${dbPath}`);
   } catch (err) {
     console.error('❌ Failed to open SQLite database:', err.message);
@@ -99,8 +99,9 @@ if (process.env.DB_NAME && process.env.DB_USER) {
   // Convert PostgreSQL placeholders ($1, $2, etc.) to SQLite placeholders (?)
   function convertPostgresToSQLite(sql, params) {
     // Replace PostgreSQL functions with SQLite equivalents
+    // Note: NOW() needs to be replaced before placeholder conversion
     let sqliteSql = sql
-      .replace(/\bNOW()\b/gi, "datetime('now')")
+      .replace(/NOW\(\)/gi, "datetime('now')")
       .replace(/\bCURRENT_TIMESTAMP\b/gi, "datetime('now')");
     
     // Replace $1, $2, etc. with ?
