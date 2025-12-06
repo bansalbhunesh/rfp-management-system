@@ -58,9 +58,9 @@ This system helps procurement managers:
 ### Prerequisites
 
 - **Node.js** v18 or higher (`node --version` to check)
-- **PostgreSQL** v12 or higher
-- **OpenAI API Key** (from https://platform.openai.com/)
-- **Email Account** with SMTP/IMAP access (Gmail recommended)
+- **PostgreSQL** v12 or higher (optional - SQLite will be used if not configured)
+- **OpenAI API Key** (optional - local parsing fallback available)
+- **Email Account** with SMTP/IMAP access (optional - for email sending/receiving)
 
 ### Installation Steps
 
@@ -84,7 +84,9 @@ This system helps procurement managers:
    npm install
    ```
 
-3. **Set up PostgreSQL database**
+3. **Set up Database (Optional)**
+
+   **Option A: Use PostgreSQL (Recommended for production)**
    ```bash
    # Create database
    createdb rfp_management
@@ -92,8 +94,12 @@ This system helps procurement managers:
    # Run schema
    psql -d rfp_management -f backend/database/schema.sql
    ```
+   
+   **Option B: Use SQLite (Default - No setup required)**
+   - The application will automatically use SQLite if PostgreSQL is not configured
+   - Database file will be created at `backend/db/local.sqlite`
 
-4. **Configure environment variables**
+4. **Configure environment variables (Optional)**
 
    Create `backend/.env` file with the following variables:
    ```bash
@@ -101,30 +107,30 @@ This system helps procurement managers:
    # Create .env file (copy the template below)
    ```
 
-   Create `backend/.env` with these variables:
+   Create `backend/.env` file (copy from `backend/.env.example`):
    ```env
    # Server
    PORT=3001
    NODE_ENV=development
 
-   # Database
+   # Database (Optional - SQLite used if not set)
    DB_HOST=localhost
    DB_PORT=5432
    DB_NAME=rfp_management
    DB_USER=postgres
    DB_PASSWORD=your_postgres_password
 
-   # OpenAI
+   # OpenAI (Optional - local parsing used if not set)
    OPENAI_API_KEY=sk-your-openai-api-key
 
-   # Email (SMTP for sending)
+   # Email (Optional - for sending RFPs via email)
    SMTP_HOST=smtp.gmail.com
    SMTP_PORT=587
    SMTP_USER=your_email@gmail.com
    SMTP_PASSWORD=your_app_password
    SMTP_FROM=your_email@gmail.com
 
-   # Email (IMAP for receiving)
+   # Email (Optional - for receiving vendor responses)
    IMAP_HOST=imap.gmail.com
    IMAP_PORT=993
    IMAP_USER=your_email@gmail.com
@@ -134,7 +140,9 @@ This system helps procurement managers:
    APP_EMAIL=your_email@gmail.com
    ```
 
-   **Note for Gmail users:**
+   **Note:** The application works without email configuration. RFPs are saved to the database and can be managed through the web interface. Email configuration is only needed if you want to send RFPs via email.
+
+   **For Gmail users (if configuring email):**
    - Enable "Less secure app access" OR use an App Password
    - Generate App Password: Google Account → Security → 2-Step Verification → App passwords
 
@@ -145,6 +153,8 @@ This system helps procurement managers:
    ```
 
 6. **Run the application**
+
+   The application works out of the box with SQLite and local parsing. No configuration required!
 
    **Option 1: Run both frontend and backend together**
    ```bash
@@ -166,6 +176,13 @@ This system helps procurement managers:
 7. **Access the application**
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:3001
+   
+   **That's it!** The application is now running. You can:
+   - Create RFPs from natural language
+   - Manage vendors
+   - Send RFPs (saved to database, emails sent if configured)
+   - Use the `/demo` page to simulate vendor responses
+   - Compare proposals with AI assistance
 
 ## 3. API Documentation
 
@@ -373,6 +390,7 @@ Response:
 4. **Manual Email Check:** Email checking is manual (button-triggered) rather than automatic to avoid constant IMAP connections.
 5. **Single User:** System is designed for single-user use (no authentication required as per assignment requirements).
 6. **RFP Structure:** RFPs are created once and sent. No editing after sending (to maintain data integrity for comparisons).
+7. **Optional Email:** Email sending/receiving is optional. The system works fully without email configuration - RFPs are saved to the database and can be managed through the web interface.
 
 ### API Design
 
