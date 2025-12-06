@@ -164,8 +164,17 @@ function RFPDetail() {
         // Reload RFP to show new proposals
         loadRFP();
       } else {
-        showError('Emails found but could not be processed. Check server logs for details.');
-        setError('Some emails could not be processed');
+        // Show detailed error messages
+        const failedEmails = data.emails?.filter(e => !e.processed) || [];
+        const errorDetails = failedEmails.map(e => {
+          const emailFrom = e.from || 'Unknown';
+          const errorMsg = e.error || 'Unknown error';
+          return `${emailFrom}: ${errorMsg}`;
+        }).join('; ');
+        
+        const errorMessage = `Emails found but could not be processed: ${errorDetails}`;
+        showError(errorMessage);
+        setError(errorMessage);
       }
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Failed to check emails';

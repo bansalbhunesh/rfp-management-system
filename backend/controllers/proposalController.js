@@ -6,10 +6,29 @@ const { success, error: errorResponse } = require('../utils/responseHelper');
  * Internal function to process vendor response (extracted for reuse)
  */
 async function processVendorResponseInternal({ emailBody, emailSubject, fromEmail, messageId }) {
-  // Find vendor by email
-  const vendorResult = await pool.query('SELECT * FROM vendors WHERE email = $1', [fromEmail]);
+  // Normalize email: lowercase, trim whitespace
+  const normalizedEmail = fromEmail ? fromEmail.trim().toLowerCase() : '';
+  
+  if (!normalizedEmail) {
+    throw new Error('Invalid email address provided');
+  }
+
+  // Find vendor by email (case-insensitive match)
+  const vendorResult = await pool.query(
+    'SELECT * FROM vendors WHERE LOWER(TRIM(email)) = $1', 
+    [normalizedEmail]
+  );
+  
   if (vendorResult.rows.length === 0) {
-    throw new Error('Vendor not found. Please add vendor first.');
+    // Get list of vendor emails for better error message
+    const allVendors = await pool.query('SELECT email, name FROM vendors ORDER BY name');
+    const vendorEmails = allVendors.rows.map(v => `${v.name} (${v.email})`).join(', ');
+    
+    throw new Error(
+      `Vendor not found for email: ${fromEmail}. ` +
+      `Please ensure the reply email matches a vendor in the system. ` +
+      (vendorEmails ? `Existing vendors: ${vendorEmails}` : 'No vendors found in system.')
+    );
   }
 
   const vendor = vendorResult.rows[0];
@@ -213,8 +232,22 @@ async function checkEmails(req, res) {
         // Try to process this email as a vendor response
         try {
           // Extract email from "Name <email@example.com>" format
+          let fromEmail = emailData.from;
           const emailMatch = emailData.from.match(/<(.+)>/);
-          const fromEmail = emailMatch ? emailMatch[1] : emailData.from;
+          if (emailMatch) {
+            fromEmail = emailMatch[1];
+          } else {
+            // If no angle brackets, try to extract email from plain text
+            const plainEmailMatch = emailData.from.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+            if (plainEmailMatch) {
+              fromEmail = plainEmailMatch[1];
+            }
+          }
+
+          // Normalize email
+          fromEmail = fromEmail.trim().toLowerCase();
+
+          console.log(`Processing email from: ${fromEmail}, Subject: ${emailData.subject}`);
 
           // Process the vendor response directly
           await processVendorResponseInternal({
@@ -224,9 +257,10 @@ async function checkEmails(req, res) {
             messageId: emailData.messageId,
           });
 
-          processedEmails.push({ ...emailData, processed: true });
+          processedEmails.push({ ...emailData, processed: true, fromEmail });
         } catch (error) {
           console.error('Error processing email:', error);
+          console.error('Email from:', emailData.from);
           processedEmails.push({ ...emailData, processed: false, error: error.message });
         }
       });
