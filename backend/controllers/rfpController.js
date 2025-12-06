@@ -260,14 +260,29 @@ Procurement Team
       }
 
       // Record in database (even if email wasn't actually sent)
-      // Use separate params for UPDATE clause to avoid parameter duplication
-      await pool.query(
-        `INSERT INTO rfp_vendors (rfp_id, vendor_id, sent_at, email_subject, email_body)
-         VALUES ($1, $2, NOW(), $3, $4)
-         ON CONFLICT (rfp_id, vendor_id) DO UPDATE
-         SET sent_at = NOW(), email_subject = $5, email_body = $6`,
-        [rfpId, vendorId, emailResult.subject, emailResult.body, emailResult.subject, emailResult.body]
+      // For SQLite compatibility, we need to handle ON CONFLICT properly
+      // Check if record exists first, then INSERT or UPDATE
+      const existingResult = await pool.query(
+        'SELECT id FROM rfp_vendors WHERE rfp_id = $1 AND vendor_id = $2',
+        [rfpId, vendorId]
       );
+
+      if (existingResult.rows.length > 0) {
+        // Update existing record
+        await pool.query(
+          `UPDATE rfp_vendors 
+           SET sent_at = NOW(), email_subject = $1, email_body = $2
+           WHERE rfp_id = $3 AND vendor_id = $4`,
+          [emailResult.subject, emailResult.body, rfpId, vendorId]
+        );
+      } else {
+        // Insert new record
+        await pool.query(
+          `INSERT INTO rfp_vendors (rfp_id, vendor_id, sent_at, email_subject, email_body)
+           VALUES ($1, $2, NOW(), $3, $4)`,
+          [rfpId, vendorId, emailResult.subject, emailResult.body]
+        );
+      }
 
       results.push({
         vendorId,
@@ -285,12 +300,16 @@ Procurement Team
     // Check if any emails were actually sent
     const allEmailsSent = results.every(r => r.emailSent);
     const someEmailsSent = results.some(r => r.emailSent);
+    const sentCount = results.filter(r => r.emailSent).length;
+    const totalCount = results.length;
     
     let message = 'RFP sent successfully';
-    if (!allEmailsSent && someEmailsSent) {
-      message = 'RFP sent to some vendors. Some emails failed - check configuration.';
-    } else if (!allEmailsSent) {
-      message = 'RFP saved successfully. Email sending is not configured - RFPs are recorded in the database. Configure SMTP settings to enable email sending.';
+    if (allEmailsSent) {
+      message = `RFP sent successfully to ${totalCount} vendor${totalCount > 1 ? 's' : ''}. Emails have been delivered.`;
+    } else if (someEmailsSent) {
+      message = `RFP sent to ${sentCount} of ${totalCount} vendors. Some emails failed - check configuration.`;
+    } else {
+      message = `RFP saved successfully for ${totalCount} vendor${totalCount > 1 ? 's' : ''}. Email sending is not configured - RFPs are recorded in the database. Configure SMTP settings to enable email sending.`;
     }
 
     return res.json(success({ results }, message));

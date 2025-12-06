@@ -256,7 +256,7 @@ function VendorManagement() {
                   value={formData.phone}
                   onChange={(e) => {
                     // Allow only digits, spaces, hyphens, and parentheses for formatting
-                    const value = e.target.value.replace(/[^\d\s\-\(\)]/g, '');
+                    const value = e.target.value.replace(/[^\d\s\-()]/g, '');
                     setFormData({ ...formData, phone: value });
                   }}
                   placeholder="8360307465"

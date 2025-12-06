@@ -79,10 +79,19 @@ function RFPDetail() {
         showError(warningMsg || 'RFP recorded but emails not sent. Configure email settings to send emails.');
         setError(warningMsg || 'Email configuration incomplete');
       } else {
-        const message = response.data.success 
-          ? (response.data.message || 'RFP sent successfully to selected vendors')
-          : 'RFP sent successfully to selected vendors';
+        // Use the message from backend, or create a detailed one
+        const backendMessage = response.data.message || 'RFP sent successfully';
+        const sentCount = data.results?.filter(r => r.success && r.emailSent).length || 0;
+        const totalCount = data.results?.length || selectedVendors.length;
+        const vendorNames = data.results?.map(r => r.vendorName).filter(Boolean).join(', ') || 'vendors';
+        
+        let message = backendMessage;
+        if (sentCount === totalCount && totalCount > 0) {
+          message = `✅ ${backendMessage} - Sent to: ${vendorNames}`;
+        }
+        
         showSuccess(message);
+        setSuccess(message);
       }
       
       setShowSendForm(false);
@@ -318,7 +327,14 @@ function RFPDetail() {
         <h2>Proposals ({proposals.length})</h2>
 
         {proposals.length === 0 ? (
-          <p>No proposals received yet. Send the RFP to vendors to receive responses.</p>
+          <div style={{ padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '4px', border: '1px solid #dee2e6' }}>
+            <p style={{ margin: '0 0 0.5rem 0', fontWeight: '500' }}>📬 No proposals received yet</p>
+            <p style={{ margin: 0, color: '#6c757d', fontSize: '0.9rem' }}>
+              {rfp.status === 'sent' 
+                ? 'Vendors have been notified. They can reply to the RFP email, or you can use the /demo page to simulate a vendor response for testing.'
+                : 'Send the RFP to vendors first. Once sent, vendors can reply via email, or you can use the /demo page to test vendor responses.'}
+            </p>
+          </div>
         ) : (
           <div className="proposals-list">
             {proposals.map((proposal) => {

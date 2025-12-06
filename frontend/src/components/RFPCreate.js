@@ -52,10 +52,10 @@ function RFPCreate() {
     try {
       const response = await createRFPFromNaturalLanguage(naturalLanguage);
       if (response.data.success) {
+        const rfpId = response.data.data.rfp.id;
         setSuccess('RFP created successfully!');
-        setTimeout(() => {
-          navigate(`/rfp/${response.data.data.rfp.id}`);
-        }, 1500);
+        // Navigate immediately to the RFP detail page (no delay)
+        navigate(`/rfp/${rfpId}`, { replace: true });
       } else {
         setError(response.data.error || 'Failed to create RFP');
       }
