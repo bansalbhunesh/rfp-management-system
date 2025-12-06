@@ -77,7 +77,7 @@ function RFPCreate() {
   return (
     <div className="rfp-create">
       <div className="card">
-        <h2>Create RFP from Natural Language</h2>
+        <h2>✨ Create RFP from Natural Language</h2>
         <p className="help-text">
           Describe what you want to procure in natural language. Our AI will extract
           the details and create a structured RFP.
