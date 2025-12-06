@@ -124,11 +124,16 @@ async function getAllRFPs(req, res) {
 async function getRFP(req, res) {
   try {
     const { id } = req.params;
+    const rfpId = parseInt(id, 10);
+
+    if (isNaN(rfpId)) {
+      return res.status(400).json(errorResponse('Invalid RFP ID', null, 400));
+    }
 
     // Get RFP
-    const rfpResult = await pool.query('SELECT * FROM rfps WHERE id = $1', [id]);
+    const rfpResult = await pool.query('SELECT * FROM rfps WHERE id = $1', [rfpId]);
     if (rfpResult.rows.length === 0) {
-      return res.status(404).json({ error: 'RFP not found' });
+      return res.status(404).json(errorResponse('RFP not found', null, 404));
     }
 
     const rfp = rfpResult.rows[0];

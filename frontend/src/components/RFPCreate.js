@@ -54,8 +54,10 @@ function RFPCreate() {
       if (response.data.success) {
         const rfpId = response.data.data.rfp.id;
         setSuccess('RFP created successfully!');
-        // Navigate immediately to the RFP detail page (no delay)
-        navigate(`/rfp/${rfpId}`, { replace: true });
+        // Small delay to ensure database commit completes
+        setTimeout(() => {
+          navigate(`/rfp/${rfpId}`, { replace: true });
+        }, 300);
       } else {
         setError(response.data.error || 'Failed to create RFP');
       }

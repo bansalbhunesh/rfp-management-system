@@ -28,17 +28,33 @@ function RFPDetail() {
   const loadRFP = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await getRFP(id);
-      const data = response.data.success ? response.data.data : response.data;
+      
+      // Handle both response formats
+      let data;
+      if (response.data.success) {
+        data = response.data.data;
+      } else if (response.data.error) {
+        // Error response
+        throw new Error(response.data.error);
+      } else {
+        // Legacy format
+        data = response.data;
+      }
+      
+      if (!data || !data.rfp) {
+        throw new Error('RFP not found');
+      }
+      
       setRFP(data.rfp);
       setProposals(data.proposals || []);
       setScores(data.scores || []);
-      setError(null);
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to load RFP';
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to load RFP';
       setError(errorMsg);
       showError(errorMsg);
-      console.error(err);
+      console.error('Error loading RFP:', err);
     } finally {
       setLoading(false);
     }
@@ -172,8 +188,18 @@ function RFPDetail() {
     return <div className="loading">Loading RFP...</div>;
   }
 
-  if (!rfp) {
-    return <div className="error">RFP not found</div>;
+  if (!rfp && !loading) {
+    return (
+      <div className="card">
+        <div className="error" style={{ padding: '2rem', textAlign: 'center' }}>
+          <h2>RFP Not Found</h2>
+          <p>The RFP you're looking for doesn't exist or may have been deleted.</p>
+          <button className="button" onClick={() => navigate('/')} style={{ marginTop: '1rem' }}>
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const requirements = typeof rfp.requirements === 'string' 
