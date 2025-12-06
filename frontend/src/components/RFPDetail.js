@@ -154,16 +154,24 @@ function RFPDetail() {
     try {
       const response = await checkEmails();
       const data = response.data.success ? response.data.data : response.data;
-      if (data.processed > 0) {
-        showSuccess(`Processed ${data.processed} email(s)`);
+      
+      if (data.total === 0) {
+        showInfo('No new emails found in inbox');
+      } else if (data.processed > 0) {
+        const message = data.message || `Processed ${data.processed} of ${data.total} email(s)`;
+        showSuccess(message);
+        setSuccess(message);
+        // Reload RFP to show new proposals
         loadRFP();
       } else {
-        showInfo('No new emails found');
+        showError('Emails found but could not be processed. Check server logs for details.');
+        setError('Some emails could not be processed');
       }
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Failed to check emails';
       setError(errorMsg);
       showError(errorMsg);
+      console.error('Error checking emails:', err);
     }
   };
 
@@ -273,9 +281,13 @@ function RFPDetail() {
             <button
               className="button button-secondary"
               onClick={handleCheckEmails}
+              title="Check inbox for vendor email responses"
             >
               Check for New Responses
             </button>
+            <small style={{ display: 'block', marginTop: '0.5rem', color: '#6c757d', fontSize: '0.85rem' }}>
+              💡 Tip: If IMAP times out, use the <strong>/demo</strong> page to simulate vendor responses for testing
+            </small>
             {proposals.length >= 2 && (
               <button
                 className="button button-success"
@@ -285,6 +297,9 @@ function RFPDetail() {
                 {comparing ? 'Comparing...' : 'Compare Proposals'}
               </button>
             )}
+          </div>
+          <div style={{ marginTop: '0.5rem', padding: '0.5rem', backgroundColor: '#e3f2fd', borderRadius: '4px', fontSize: '0.85rem', color: '#1565c0' }}>
+            💡 <strong>Tip:</strong> If IMAP times out, use the <strong>/demo</strong> page to simulate vendor responses for testing
           </div>
         </div>
 

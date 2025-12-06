@@ -208,31 +208,57 @@ async function checkEmails(req, res) {
     const emailService = require('../services/emailService');
     const processedEmails = [];
 
-    await emailService.checkForNewEmails(async (emailData) => {
-      // Try to process this email as a vendor response
-      try {
-        // Extract email from "Name <email@example.com>" format
-        const emailMatch = emailData.from.match(/<(.+)>/);
-        const fromEmail = emailMatch ? emailMatch[1] : emailData.from;
+    try {
+      await emailService.checkForNewEmails(async (emailData) => {
+        // Try to process this email as a vendor response
+        try {
+          // Extract email from "Name <email@example.com>" format
+          const emailMatch = emailData.from.match(/<(.+)>/);
+          const fromEmail = emailMatch ? emailMatch[1] : emailData.from;
 
-        // Process the vendor response directly
-        await processVendorResponseInternal({
-          emailBody: emailData.body,
-          emailSubject: emailData.subject,
-          fromEmail: fromEmail,
-          messageId: emailData.messageId,
-        });
+          // Process the vendor response directly
+          await processVendorResponseInternal({
+            emailBody: emailData.body,
+            emailSubject: emailData.subject,
+            fromEmail: fromEmail,
+            messageId: emailData.messageId,
+          });
 
-        processedEmails.push({ ...emailData, processed: true });
-      } catch (error) {
-        processedEmails.push({ ...emailData, processed: false, error: error.message });
+          processedEmails.push({ ...emailData, processed: true });
+        } catch (error) {
+          console.error('Error processing email:', error);
+          processedEmails.push({ ...emailData, processed: false, error: error.message });
+        }
+      });
+
+      const successCount = processedEmails.filter(e => e.processed).length;
+      const totalCount = processedEmails.length;
+
+      return res.json(success({
+        processed: successCount,
+        total: totalCount,
+        emails: processedEmails,
+        message: totalCount === 0 
+          ? 'No new emails found in inbox'
+          : `Processed ${successCount} of ${totalCount} email(s)`
+      }));
+    } catch (imapError) {
+      // Handle IMAP-specific errors
+      let errorMessage = 'Failed to check emails';
+      
+      if (imapError.message.includes('timeout') || imapError.message.includes('Timed out')) {
+        errorMessage = 'IMAP connection timed out. Please check your IMAP settings in .env file. For Gmail, ensure you\'re using an App Password and that IMAP is enabled.';
+      } else if (imapError.message.includes('authentication') || imapError.message.includes('EAUTH')) {
+        errorMessage = 'IMAP authentication failed. Please check your IMAP_USER and IMAP_PASSWORD in .env file.';
+      } else if (imapError.message.includes('ENOTFOUND') || imapError.message.includes('ECONNREFUSED')) {
+        errorMessage = 'Cannot connect to IMAP server. Please check your IMAP_HOST and IMAP_PORT settings.';
+      } else {
+        errorMessage = imapError.message || 'Failed to check emails';
       }
-    });
 
-    return res.json(success({
-      processed: processedEmails.length,
-      emails: processedEmails
-    }));
+      console.error('Error checking emails:', imapError);
+      return res.status(500).json(errorResponse(errorMessage, null, 500));
+    }
   } catch (err) {
     console.error('Error checking emails:', err);
     return res.status(500).json(errorResponse(err.message || 'Failed to check emails', null, 500));

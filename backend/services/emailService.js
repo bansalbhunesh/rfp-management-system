@@ -111,9 +111,23 @@ async function checkForNewEmails(callback) {
     port: parseInt(process.env.IMAP_PORT || '993'),
     tls: true,
     tlsOptions: { rejectUnauthorized: false },
+    connTimeout: 30000, // 30 seconds connection timeout
+    authTimeout: 30000, // 30 seconds authentication timeout
   });
 
-  return new Promise((resolve, reject) => {
+  let timeoutId = null;
+
+  const imapPromise = new Promise((resolve, reject) => {
+    // Set overall timeout
+    timeoutId = setTimeout(() => {
+      try {
+        imap.end();
+      } catch (e) {
+        // Ignore errors when ending
+      }
+      reject(new Error('IMAP connection timed out. Please check your IMAP settings and internet connection.'));
+    }, 60000); // 60 seconds total timeout
+
     imap.once('ready', () => {
       imap.openBox('INBOX', false, (err, box) => {
         if (err) {
@@ -129,6 +143,7 @@ async function checkForNewEmails(callback) {
           }
 
           if (!results || results.length === 0) {
+            if (timeoutId) clearTimeout(timeoutId);
             imap.end();
             resolve([]);
             return;
@@ -178,6 +193,7 @@ async function checkForNewEmails(callback) {
           });
 
           fetch.once('end', () => {
+            if (timeoutId) clearTimeout(timeoutId);
             imap.end();
             resolve(emails);
           });
@@ -186,11 +202,14 @@ async function checkForNewEmails(callback) {
     });
 
     imap.once('error', (err) => {
+      if (timeoutId) clearTimeout(timeoutId);
       reject(err);
     });
 
     imap.connect();
   });
+
+  return imapPromise;
 }
 
 module.exports = {
